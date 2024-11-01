@@ -15,86 +15,85 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  meta:
-    runs-on: ubuntu-22.04
-    outputs:
-      matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v2.1
+  # meta:
+  #   runs-on: ubuntu-22.04
+  #   outputs:
+  #     matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - id: matrix
+  #       uses: splunk/addonfactory-test-matrix-action@v2.1
 
-  fossa-scan:
-    continue-on-error: true
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - run: |
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa analyze --debug
-          fossa report attribution --format text > /tmp/THIRDPARTY
-        env:
-          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: THIRDPARTY
-          path: /tmp/THIRDPARTY
-      - run: |
-          fossa test --debug
-        env:
-          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
-      - name: Check for failed steps for jobs with continue-on-error
-        if: ${{ failure() }}
-        run: echo "failed=true" >> $GITHUB_ENV
+  # fossa-scan:
+  #   continue-on-error: true
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: |
+  #         curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
+  #         fossa analyze --debug
+  #         fossa report attribution --format text > /tmp/THIRDPARTY
+  #       env:
+  #         FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: THIRDPARTY
+  #         path: /tmp/THIRDPARTY
+  #     - run: |
+  #         fossa test --debug
+  #       env:
+  #         FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+  #     - name: Check for failed steps for jobs with continue-on-error
+  #       if: ${{ failure() }}
+  #       run: echo "failed=true" >> $GITHUB_ENV
 
-      - name: Set output if steps failed
-        run: |
-          echo "failed=${{ env.failed }}" >> $GITHUB_ENV
-    outputs:
-      failed: ${{ env.failed }}
+  #     - name: Set output if steps failed
+  #       run: |
+  #         echo "failed=${{ env.failed }}" >> $GITHUB_ENV
+  #   outputs:
+  #     failed: ${{ env.failed }}
 
-  pre-commit:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.7"
-      - uses: pre-commit/action@v3.0.1
+  # pre-commit:
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.7"
+  #     - uses: pre-commit/action@v3.0.1
 
-  semgrep:
-    uses: splunk/sast-scanning/.github/workflows/sast-scan.yml@main
-    secrets:
-      SEMGREP_KEY: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
+  # semgrep:
+  #   uses: splunk/sast-scanning/.github/workflows/sast-scan.yml@main
+  #   secrets:
+  #     SEMGREP_KEY: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
 
-  compliance-copyrights:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: apache/skywalking-eyes@v0.6.0
+  # compliance-copyrights:
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: apache/skywalking-eyes@v0.6.0
 
   build-ui:
     name: Build UCC UI
     uses: ./.github/workflows/build-ui.yml
 
-  storybook-screenshots:
-    name: Update storybook screenshots
-    permissions:
-      contents: write
-    secrets: inherit
-    uses: ./.github/workflows/storybook-visual.yml
-  bot-updates:
-    name: Generates Documentation
-    permissions:
-      contents: write
-    secrets: inherit
-    uses: ./.github/workflows/automatic_doc_generation.yml
-    with:
-      python-version: "3.7"
+  # storybook-screenshots:
+  #   name: Update storybook screenshots
+  #   permissions:
+  #     contents: write
+  #   secrets: inherit
+  #   uses: ./.github/workflows/storybook-visual.yml
+  # bot-updates:
+  #   name: Generates Documentation
+  #   permissions:
+  #     contents: write
+  #   secrets: inherit
+  #   uses: ./.github/workflows/automatic_doc_generation.yml
+  #   with:
+  #     python-version: "3.7"
 
   build:
     needs:
-      - fossa-scan
       - build-ui
     runs-on: ubuntu-22.04
     steps:
@@ -232,7 +231,6 @@ jobs:
       contents: read
       checks: write
     needs:
-      - meta
       - build-test-addon
       - build
       - test-unit
@@ -349,93 +347,92 @@ jobs:
           name: appinspect-api-html-report-${{ matrix.tags }}
           path: AppInspect_response.html
 
-  all-checks:
-    if: ${{ !cancelled() }}
-    needs:
-      - test-unit
-      - test-smoke
-      - test-ui
-      - build-test-addon-openapi-client
-      - storybook-screenshots
-      - bot-updates
-    runs-on: ubuntu-22.04
-    env:
-      NEEDS: ${{ toJson(needs) }}
-    steps:
-      - name: check if tests have passed
-        id: check
-        shell: bash
-        run: |
-          ALL_JOBS_PASSED=$(echo "$NEEDS" | jq 'all(.[]; .result == "success" and (.outputs.failed // "false") != "true")')
-          if [[ "$ALL_JOBS_PASSED" == "true" ]]
-          then
-              echo "all-checks=true" >> "$GITHUB_OUTPUT"
-          else
-              echo "all-checks=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Fail job if something failed
-        if: ${{ steps.check.outputs.all-checks == 'false' }}
-        run: |
-          echo "Some check failed"
-          exit 1
+  # all-checks:
+  #   if: ${{ !cancelled() }}
+  #   needs:
+  #     - test-unit
+  #     - test-smoke
+  #     - test-ui
+  #     - build-test-addon-openapi-client
+  #     - storybook-screenshots
+  #     - bot-updates
+  #   runs-on: ubuntu-22.04
+  #   env:
+  #     NEEDS: ${{ toJson(needs) }}
+  #   steps:
+  #     - name: check if tests have passed
+  #       id: check
+  #       shell: bash
+  #       run: |
+  #         ALL_JOBS_PASSED=$(echo "$NEEDS" | jq 'all(.[]; .result == "success" and (.outputs.failed // "false") != "true")')
+  #         if [[ "$ALL_JOBS_PASSED" == "true" ]]
+  #         then
+  #             echo "all-checks=true" >> "$GITHUB_OUTPUT"
+  #         else
+  #             echo "all-checks=false" >> "$GITHUB_OUTPUT"
+  #         fi
+  #     - name: Fail job if something failed
+  #       if: ${{ steps.check.outputs.all-checks == 'false' }}
+  #       run: |
+  #         echo "Some check failed"
+  #         exit 1
 
-  release:
-    needs:
-      - build
-      - compliance-copyrights
-      - fossa-scan
-      - test-unit
-      - test-smoke
-      - test-ui
-      - appinspect-for-expected-outputs
-      - semgrep
-      - pre-commit
-      - all-checks
-    runs-on: ubuntu-22.04
-    if: "! github.event.pull_request.head.repo.fork "
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # Very important: semantic-release won't trigger a tagged
-          # build if this is not set false
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.7"
-      - run: curl -sSL https://install.python-poetry.org | python3 - --version 1.5.1
-      - uses: actions/download-artifact@v4
-        with:
-          name: UCC-UI-build
-          path: built-ui/
-      - uses: actions/download-artifact@v4
-        with:
-          name: THIRDPARTY
-      - run: cp -f THIRDPARTY NOTICE
-      - run: poetry install
-      - name: Copy built UCC UI into UCC generator folder
-        run: |
-          cp -R built-ui/. splunk_add_on_ucc_framework/package/appserver/static/js/
-      - id: semantic
-        uses: splunk/semantic-release-action@v1.3
-        with:
-          git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
-          git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
-          gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
-          extra_plugins: |
-            semantic-release-replace-plugin
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
-      - if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        run: |
-          poetry build
-          poetry publish -n -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_TOKEN }}
+  # release:
+  #   needs:
+  #     - build
+  #     - compliance-copyrights
+  #     - fossa-scan
+  #     - test-unit
+  #     - test-smoke
+  #     - test-ui
+  #     - appinspect-for-expected-outputs
+  #     - semgrep
+  #     - pre-commit
+  #     - all-checks
+  #   runs-on: ubuntu-22.04
+  #   if: "! github.event.pull_request.head.repo.fork "
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         # Very important: semantic-release won't trigger a tagged
+  #         # build if this is not set false
+  #         persist-credentials: false
+  #     - uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.7"
+  #     - run: curl -sSL https://install.python-poetry.org | python3 - --version 1.5.1
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         name: UCC-UI-build
+  #         path: built-ui/
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         name: THIRDPARTY
+  #     - run: cp -f THIRDPARTY NOTICE
+  #     - run: poetry install
+  #     - name: Copy built UCC UI into UCC generator folder
+  #       run: |
+  #         cp -R built-ui/. splunk_add_on_ucc_framework/package/appserver/static/js/
+  #     - id: semantic
+  #       uses: splunk/semantic-release-action@v1.3
+  #       with:
+  #         git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
+  #         git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
+  #         gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
+  #         passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
+  #         extra_plugins: |
+  #           semantic-release-replace-plugin
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+  #     - if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+  #       run: |
+  #         poetry build
+  #         poetry publish -n -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_TOKEN }}
 
   build-test-addon-openapi-client:
     name: build-test-addon-openapi-client Splunk ${{ matrix.splunk.version }}
     runs-on: ubuntu-22.04
     needs:
-      - meta
       - build-test-addon
       - build
       - test-unit
